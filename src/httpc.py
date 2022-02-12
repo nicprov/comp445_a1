@@ -13,19 +13,25 @@ CONTEXT_SETTINGS = dict(help_option_names=["--help"])
               help="Prints the detail of the response such as protocol, status, and headers")
 @click.option("-h", "--headers", default=None, multiple=True,
               help="Associates headers to HTTP Request with the format 'key:value'")
-@click.option("-d", "--data", help="Associates an inline data to the body HTTP POST request")
-@click.option("-f", "--file", help="Associates the content of a file to the body HTTP POST request.")
-@click.option("-o", "--output", help="Outputs response to file")
+@click.option("-d", "--data", default=None, help="Associates an inline data to the body HTTP POST request")
+@click.option("-f", "--file", default=None, help="Associates the content of a file to the body HTTP POST request.")
+@click.option("-o", "--output", default=None, help="Outputs response to file")
 def main(command, url, verbose, headers, data, file, output):
     """
     httpc is a curl-like application but supports HTTP protocol only.
 
     The commands are:
 
-    - get executes a HTTP GET request and prints the response.
+    - get executes an HTTP GET request and prints the response.
 
-    - post executes a HTTP POST request and prints the response.
+    - post executes an HTTP POST request and prints the response.
     """
+
+    """
+    TODO:
+    - Add output
+    """
+
     # Validate command
     validate_command(command)
 
@@ -35,15 +41,52 @@ def main(command, url, verbose, headers, data, file, output):
     # Validate header
     parsed_headers = validate_headers(headers)
 
+    # Validate input file
+    parsed_file = validate_input_file(file)
+
+    if file is not None and data is not None:
+        print("Cannot provide body data using both -d and -f")
+        exit(1)
+
+    if command == "get" and (file is not None or data is not None):
+        print("Cannot pass body data using get")
+        exit(1)
+
     if command == "get":
         response = Http().get(url, parsed_headers)
     else:
-        response = Http().post(url, parsed_headers, data)
+        if file is not None:
+            response = Http().post(url, parsed_headers, parsed_file)
+        else:
+            response = Http().post(url, parsed_headers, data)
 
     if verbose:
-        print(response.get_formatted_response())
+        if output is not None:
+            write_output(output, response.get_formatted_response())
+        else:
+            print(response.get_formatted_response())
     else:
-        print(response.get_body())
+        if output is not None:
+            write_output(output, response.get_body())
+        else:
+            print(response.get_body())
+
+
+def validate_input_file(file):
+    """Reads and validates input file"""
+    if file is not None:
+        try:
+            with open(file, "r") as f:
+                return f.read().strip()
+        except Exception as e:
+            print("Unable to read file: " + file)
+            exit(1)
+
+
+def validate_output_file(file):
+    """Validates output file"""
+    if file is not None:
+        return None
 
 
 def validate_command(command):
@@ -75,6 +118,15 @@ def validate_headers(headers):
             else:
                 parsed_headers.append((parsed_header[0], parsed_header[1]))
     return parsed_headers
+
+
+def write_output(file, data):
+    try:
+        with open(file, "w") as f:
+            f.write(data)
+    except Exception as e:
+        print("Unable to write to file: " + file)
+        exit(1)
 
 
 if __name__ == "__main__":
