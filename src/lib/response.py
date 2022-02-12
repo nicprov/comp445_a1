@@ -24,7 +24,11 @@ class Response:
             else:
                 parsed_header = line.split(":")
                 if parsed_header[0] == header:
-                    return parsed_header[1].strip()
+                    if len(parsed_header) == 3:
+                        return (parsed_header[1] + parsed_header[2]).strip()
+                    else:
+                        return parsed_header[1].strip()
+
         return None
 
     def get_body(self):

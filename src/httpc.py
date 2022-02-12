@@ -52,24 +52,29 @@ def main(command, url, verbose, headers, data, file, output):
         print("Cannot pass body data using get")
         exit(1)
 
-    if command == "get":
-        response = Http().get(url, parsed_headers)
-    else:
-        if file is not None:
-            response = Http().post(url, parsed_headers, parsed_file)
+    try:
+        if command == "get":
+            response = Http().get(url, parsed_headers)
         else:
-            response = Http().post(url, parsed_headers, data)
+            if file is not None:
+                response = Http().post(url, parsed_headers, parsed_file)
+            else:
+                response = Http().post(url, parsed_headers, data)
 
-    if verbose:
-        if output is not None:
-            write_output(output, response.get_formatted_response())
+        if verbose:
+            if output is not None:
+                write_output(output, response.get_formatted_response())
+            else:
+                print(response.get_formatted_response())
         else:
-            print(response.get_formatted_response())
-    else:
-        if output is not None:
-            write_output(output, response.get_body())
-        else:
-            print(response.get_body())
+            if output is not None:
+                write_output(output, response.get_body())
+            else:
+                print(response.get_body())
+
+    except Exception as e:
+        print(e)
+        exit(1)
 
 
 def validate_input_file(file):

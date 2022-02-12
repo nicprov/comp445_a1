@@ -27,7 +27,7 @@ class Http:
             raise Exception("Invalid scheme provided, must be http")
 
         # Validate host
-        if host is None:
+        if host is None or not self.__validate_host(host):
             raise Exception("Invalid host provided")
 
         # Validate path
@@ -47,8 +47,9 @@ class Http:
         message += "{0}Host: {1}{2}".format(LINE_BREAK, host, LINE_BREAK)
 
         # Add headers
-        for header in headers:
-            message += "{0}: {1}{2}".format(header[0], header[1], LINE_BREAK)
+        if headers is not None:
+            for header in headers:
+                message += "{0}: {1}{2}".format(header[0], header[1], LINE_BREAK)
 
         # Add body
         if body is not None and http_method == HttpMethod.POST:
@@ -59,14 +60,28 @@ class Http:
         message += LINE_BREAK
         self.__conn.send(message.encode())
 
+    def __validate_host(self, host):
+        try:
+            socket.gethostbyname(host)
+            return True
+        except:
+            return False
+
+    def __get_response(self, http_method, url, headers, body=None):
+        self.__send(http_method, url, headers, body)
+        response = Response(self.__conn.recv(BUFFER_SIZE).decode().split(LINE_BREAK))
+        if response.get_status_code() in [301, 302]: # Temporary or permanent redirect
+            location = response.get_header("location")
+            if location is None:
+                location = response.get_header("Location")
+            parsed_url = urlparse(url)
+            new_url = "{0}://{1}{2}?{3}".format(parsed_url.scheme, parsed_url.hostname, location, parsed_url.query)
+            return self.__get_response(http_method, new_url, headers, body)
+        else:
+            return response
+
     def get(self, url, headers=None):
-        if headers is None:
-            headers = []
-        self.__send(HttpMethod.GET, url, headers)
-        return Response(self.__conn.recv(BUFFER_SIZE).decode().split(LINE_BREAK))
+        return self.__get_response(HttpMethod.GET, url, headers)
 
     def post(self, url, headers=None, body=None):
-        if headers is None:
-            headers = []
-        self.__send(HttpMethod.POST, url, headers, body)
-        return Response(self.__conn.recv(BUFFER_SIZE).decode().split(LINE_BREAK))
+        return self.__get_response(HttpMethod.POST, url, headers, body)
