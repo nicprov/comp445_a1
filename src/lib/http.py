@@ -1,7 +1,7 @@
 import socket
 from urllib.parse import urlparse
-from src.lib.http_method import HttpMethod
-from src.lib.response import Response
+from .http_method import HttpMethod
+from .response import Response
 
 BUFFER_SIZE = 1024
 HTTP_VERSION = "1.0"
@@ -23,10 +23,8 @@ class Http:
         # Validate scheme
         if scheme == "http":
             port = 80
-        elif scheme == "https":
-            port = 443
         else:
-            raise Exception("Invalid scheme provided, must be either http or https")
+            raise Exception("Invalid scheme provided, must be http")
 
         # Validate host
         if host is None:
@@ -34,7 +32,9 @@ class Http:
 
         # Validate path
         if path == "":
-            path = "/"
+            path = "/?" + parsed_url.query
+        else:
+            path += "?" + parsed_url.query
 
         # Connect to server
         self.__connect(host, port)
