@@ -1,56 +1,72 @@
 import socket
+from urllib.parse import urlparse
 from src.lib.http_method import HttpMethod
 from src.lib.response import Response
 
 BUFFER_SIZE = 1024
+HTTP_VERSION = "1.0"
 LINE_BREAK = "\r\n"
 
 
 class Http:
-    def __init__(self, host, port=80):
-        self.__headers = []
-        self.__body = ""
-        self.__host = host
-        self.__port = port
-
-        # Establish TCP connection
-        self.__connect()
-
-    def __connect(self):
+    def __connect(self, host, port):
         self.__conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.__conn.connect((self.__host, self.__port))
+        self.__conn.connect((host, port))
 
-    def __send(self, httpMethod, path):
-        # Add request method, path and http version
-        if httpMethod == HttpMethod.GET:
-            message = "GET {0} HTTP/1.0".format(path)
+    def __send(self, http_method, url, headers, body=None):
+        # Extract path and domain
+        parsed_url = urlparse(url)
+        host = parsed_url.hostname
+        scheme = parsed_url.scheme
+        path = parsed_url.path
+
+        # Validate scheme
+        if scheme == "http":
+            port = 80
+        elif scheme == "https":
+            port = 443
         else:
-            message = "POST {0} HTTP/1.0".format(path)
-        message += "{0}Host: {1}{2}".format(LINE_BREAK, self.__host, LINE_BREAK)
+            raise Exception("Invalid scheme provided, must be either http or https")
+
+        # Validate host
+        if host is None:
+            raise Exception("Invalid host provided")
+
+        # Validate path
+        if path == "":
+            path = "/"
+
+        # Connect to server
+        self.__connect(host, port)
+
+        # Add request method, path and http version
+        if http_method == HttpMethod.GET:
+            message = "GET {0} HTTP/{1}".format(path, HTTP_VERSION)
+        else:
+            message = "POST {0} HTTP/{1}".format(path, HTTP_VERSION)
+        message += "{0}Host: {1}{2}".format(LINE_BREAK, host, LINE_BREAK)
 
         # Add headers
-        for header in self.__headers:
+        for header in headers:
             message += "{0}: {1}{2}".format(header[0], header[1], LINE_BREAK)
 
         # Add body
-        if self.__body != "" and httpMethod == HttpMethod.POST:
-            message += "{0}{1}".format(self.__body, LINE_BREAK)
+        if body is not None and http_method == HttpMethod.POST:
+            message += "Content-Length: {0}{1}".format(len(body.encode()), LINE_BREAK)
+            message += "{0}{1}{2}".format(LINE_BREAK, body, LINE_BREAK)
 
         # Add final line break
         message += LINE_BREAK
         self.__conn.send(message.encode())
 
-    def get(self, path, headers=None):
+    def get(self, url, headers=None):
         if headers is None:
             headers = []
-        self.__headers = headers
-        self.__send(HttpMethod.GET, path)
+        self.__send(HttpMethod.GET, url, headers)
         return Response(self.__conn.recv(BUFFER_SIZE).decode().split(LINE_BREAK))
 
-    def post(self, path, headers=None, body=""):
+    def post(self, url, headers=None, body=None):
         if headers is None:
             headers = []
-        self.__headers = headers
-        self.__body = body
-        self.__send(HttpMethod.POST, path)
+        self.__send(HttpMethod.POST, url, headers, body)
         return Response(self.__conn.recv(BUFFER_SIZE).decode().split(LINE_BREAK))
