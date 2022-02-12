@@ -2,7 +2,7 @@ class Response:
     def __init__(self, raw):
         self.__raw = raw
 
-    def formatted(self):
+    def get_formatted_response(self):
         response = ""
         for line in self.__raw:
             if line == "":
@@ -11,8 +11,11 @@ class Response:
                 response += line + "\n"
         return response
 
+    def get_status(self):
+        return self.__raw[0].split(" ")[2]
+
     def get_status_code(self):
-        return self.__raw[0].split(" ")[1]
+        return int(self.__raw[0].split(" ")[1])
 
     def get_header(self, header):
         for line in self.__raw:
@@ -21,5 +24,15 @@ class Response:
             else:
                 parsed_header = line.split(":")
                 if parsed_header[0] == header:
-                    return parsed_header[1]
+                    return parsed_header[1].strip()
         return None
+
+    def get_body(self):
+        is_body = False
+        body = ""
+        for line in self.__raw:
+            if line == "":
+                is_body = True
+            elif is_body:
+                body += line
+        return body
